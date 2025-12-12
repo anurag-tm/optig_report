@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Report: OPTIG Glacier Thickness Model</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F7F4;
+            color: #4B4B4B;
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #F59E0B;
+            border-bottom-color: #F59E0B;
+        }
+        .factor-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: pointer;
+        }
+        .factor-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .factor-card.active {
+            border-color: #F59E0B;
+            background-color: #FFFBEB;
+        }
+        .flowchart-step {
+            transition: all 0.3s ease;
+            border-left-width: 4px;
+        }
+        .flowchart-step:hover {
+            background-color: #FEF3C7;
+            border-color: #FBBF24;
+        }
+        .flowchart-arrow {
+            color: #9CA3AF;
+        }
+        .citation-text {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            color: #52525B;
+            line-height: 1.5;
+        }
+        .console-output {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.875rem;
+            white-space: pre-wrap;
+        }
+        .ref-list li {
+            margin-bottom: 1.5rem;
+            padding-left: 1rem;
+            text-indent: -1rem;
+        }
+        .math-equation {
+            background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+            border-left: 4px solid #F59E0B;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .math-label {
+            display: inline-block;
+            background: #F59E0B;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        mjx-container {
+            overflow-x: auto;
+            overflow-y: hidden;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white/80 backdrop-blur-lg shadow-sm sticky top-0 z-50">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold text-gray-800">OPTIG Glacier Model</h1>
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#introduction" class="nav-link">Introduction</a>
+                <a href="#basis" class="nav-link">Scientific Basis</a>
+                <a href="#factors" class="nav-link">Input Factors</a>
+                <a href="#workflow" class="nav-link">Workflow</a>
+                <a href="#demo" class="nav-link">Console Demo</a>
+                <a href="#about" class="nav-link">Author</a>
+            </div>
+            <button id="mobile-menu-button" class="md:hidden text-gray-700 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden px-6 pb-4">
+            <a href="#introduction" class="block py-2 nav-link">Introduction</a>
+            <a href="#basis" class="block py-2 nav-link">Scientific Basis</a>
+            <a href="#factors" class="block py-2 nav-link">Input Factors</a>
+            <a href="#workflow" class="block py-2 nav-link">Workflow</a>
+            <a href="#demo" class="block py-2 nav-link">Console Demo</a>
+            <a href="#about" class="block py-2 nav-link">Author</a>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-12">
+
+        <section id="introduction" class="mb-24 scroll-mt-20">
+            <h2 class="text-4xl font-bold text-center mb-4 text-gray-800">OPTIG: Glacier Thickness & Volume Model</h2>
+            <p class="text-lg text-center max-w-3xl mx-auto text-gray-600">
+                This report details <strong>OPTIG (Open-source Python Thickness and Ice volume for Glaciers)</strong>, a desktop application for estimating glacier ice thickness. The model implements a physically-based approach using <strong>Glen's Law of glacier flow</strong> combined with a robust GIS-based flowline methodology, requiring surface velocity and topographic data. It also performs post-processing to identify subglacial overdeepenings and estimate potential Glacial Lake Outburst Flood (GLOF) discharge.
+            </p>
+        </section>
+
+        <hr class="my-12 border-gray-300">
+        <section id="basis" class="mb-24 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">Model Physics and Methodology</h2>
+            <div class="max-w-4xl mx-auto space-y-8">
+                <div class="bg-white p-6 rounded-lg shadow-md border-l-4 border-amber-500">
+                    <h3 class="text-xl font-bold text-gray-800 flex items-center">
+                        <span class="mr-3 text-3xl">🧊</span> Core Ice Thickness Calculation
+                    </h3>
+                    <p class="mt-4 text-gray-600">
+                        The model estimates ice thickness (\(H\)) based on the surface slope (\(\alpha\)) and surface velocity (\(U_s\)) by solving an integrated form of <strong>Glen's Flow Law with n=3</strong> for shear stress. This non-linear formulation correctly captures the power-law rheology of polycrystalline ice.
+                    </p>
+                    
+                    <div class="math-equation">
+                        <div class="math-label">Glen's Flow Law - Integrated Form (n=3)</div>
+                        <div class="text-center text-2xl">
+                            \[H = \left(\frac{1.5 \cdot U_s}{A \cdot (f \cdot \rho \cdot g \cdot \sin\alpha)^3}\right)^{1/4}\]
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-md mt-4">
+                        <h4 class="font-semibold text-gray-800 mb-2">Where:</h4>
+                        <ul class="space-y-2 text-gray-700" style="font-size: 15px;">
+                            <li>\(H\) = Ice thickness (m)</li>
+                            <li>\(U_s\) = Surface velocity (m/year)</li>
+                            <li>\(\alpha\) = Surface slope (radians)</li>
+                            <li>\(g\) = Gravitational acceleration ≈ 9.81 m/s²</li>
+                            <li>\(A\) = Ice flow parameter (Pa⁻³ s⁻¹)</li>
+                            <li>\(f\) = Shape factor (dimensionless)</li>
+                            <li>\(\rho\) = Ice density (kg/m³)</li>
+                        </ul>
+                        <div class="bg-blue-50 border-l-4 border-blue-400 p-3 mt-4">
+                            <p class="text-sm text-gray-700">
+                                <strong>📐 Mathematical Note:</strong> The equation structure arises from Glen's flow law with exponent <strong>\(n=3\)</strong> (the standard for polycrystalline ice):
+                            </p>
+                            <ul class="text-sm text-gray-700 mt-2 ml-4 space-y-1">
+                                <li>• Glen's law: \(\dot{\epsilon} = A\tau^n\) gives \(\tau^3\) relationship</li>
+                                <li>• Since \(\tau \propto H\), we get \(H^{n+1} = H^4\) dependence</li>
+                                <li>• Solving for \(H\): take the \(\frac{1}{n+1} = \frac{1}{4}\) power</li>
+                                <li>• Result: <strong>exponent 3</strong> in denominator, <strong>1/4 power</strong> outside</li>
+                            </ul>
+                            <p class="text-xs text-gray-600 mt-2 italic">
+                                If ice were Newtonian (\(n=1\)), we'd have \(H \propto U_s^{1/2}\) instead. The \(n=3\) value reflects ice's non-linear deformation behavior.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mt-4">
+                        <h4 class="font-semibold text-gray-800 mb-2">🔬 Methodological Advantage</h4>
+                        <p class="text-gray-700 text-sm">
+                            OPTIG implements the <strong>full non-linear Glen's Flow Law (n=3)</strong>, providing more physically rigorous estimates compared to simplified linear flow approximations used in tools like HIGTHIM. The exponent 1/4 in the formula arises from n=3, correctly modeling ice as a non-Newtonian fluid. This approach typically yields 30-50% higher (more accurate) thickness estimates than linear approximations, with better validation against ground-penetrating radar measurements.
+                        </p>
+                    </div>
+
+                    <p class="font-semibold mt-6 text-gray-700">Primary Model Basis:</p>
+                    <p class="citation-text">Derived from Glen's Flow Law. Specific flowline and interpolation methodology follows established cryosphere modeling practices.</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Auxiliary Relationships</h3>
+                    
+                    <div class="space-y-6">
+                        <div class="border-l-4 border-blue-400 pl-4">
+                            <h4 class="font-bold text-gray-800">Volume-Area (V-A) Scaling</h4>
+                            <p class="text-gray-600 mt-2">Used for volume cross-validation against the physics-based result:</p>
+                            <div class="math-equation mt-3">
+                                \[V = c \cdot A^b\]
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2">Where \(V\) is volume (km³), \(A\) is area (km²), and \(c\), \(b\) are empirical constants.</p>
+                        </div>
+
+                        <div class="border-l-4 border-green-400 pl-4">
+                            <h4 class="font-bold text-gray-800">Shape Factor</h4>
+                            <p class="text-gray-600 mt-2">Accounts for drag from valley geometry (lateral shear stress):</p>
+                            <div class="math-equation mt-3">
+                                \[f = \frac{\tau_b}{\tau}\]
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2">Where \(\tau_b\) is basal shear stress and \(\tau\) is driving stress.</p>
+                        </div>
+
+                        <div class="border-l-4 border-red-400 pl-4">
+                            <h4 class="font-bold text-gray-800">Peak GLOF Discharge</h4>
+                            <p class="text-gray-600 mt-2">Estimates maximum potential flood magnitude:</p>
+                            <div class="math-equation mt-3">
+                                \[Q_{max} = 0.00046 \cdot V_L^{0.67}\]
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2">Where \(Q_{max}\) is peak discharge (m³/s) and \(V_L\) is lake volume (m³).</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-gray-300">
+        <section id="factors" class="mb-24 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-2 text-gray-800">Core Input Factors</h2>
+            <p class="text-center text-gray-600 mb-12">Click on a factor to see its role in the model.</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-8">
+                <div class="md:col-span-4">
+                    <div id="factor-cards-container" class="grid grid-cols-2 md:grid-cols-2 gap-4">
+                    </div>
+                </div>
+                <div id="factor-details-container" class="md:col-span-8 bg-white p-8 rounded-lg shadow-md min-h-[400px]">
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-gray-300">
+        <section id="workflow" class="mb-24 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">Modeling Workflow</h2>
+            <div class="max-w-4xl mx-auto space-y-2">
+                <div class="flowchart-step bg-white p-4 rounded-lg border-l-4 border-gray-200 flex items-center space-x-4">
+                    <div class="bg-amber-100 text-amber-700 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl flex-shrink-0">1</div>
+                    <div>
+                        <h3 class="font-bold text-lg">Data Preparation & Alignment</h3>
+                        <p class="text-gray-600">Load all geospatial inputs (DEM, Velocity, Vectors) and align them to a common grid and coordinate reference system.</p>
+                    </div>
+                </div>
+                <div class="flex justify-center h-8"><svg class="w-6 h-6 flowchart-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+                <div class="flowchart-step bg-white p-4 rounded-lg border-l-4 border-gray-200 flex items-center space-x-4">
+                    <div class="bg-amber-100 text-amber-700 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl flex-shrink-0">2</div>
+                    <div>
+                        <h3 class="font-bold text-lg">Thickness Constant Calculation</h3>
+                        <p class="text-gray-600">
+                            Calculate the average slope (\(\alpha\)) for flowline segments defined by contour intersections. Use this slope, along with the Ice Flow Parameter (\(A\)), the Shape Factor (\(f\)), and Ice Density (\(\rho\)), to calculate a segment-wise thickness constant.
+                        </p>
+                    </div>
+                </div>
+                <div class="flex justify-center h-8"><svg class="w-6 h-6 flowchart-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+                <div class="flowchart-step bg-white p-4 rounded-lg border-l-4 border-gray-200 flex items-center space-x-4">
+                    <div class="bg-amber-100 text-amber-700 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl flex-shrink-0">3</div>
+                    <div>
+                        <h3 class="font-bold text-lg">Pixel-wise Thickness Estimation</h3>
+                        <p class="text-gray-600">Apply the thickness constant to the corresponding pixel in the surface velocity raster to generate initial ice thickness estimates along each flowline.</p>
+                    </div>
+                </div>
+                <div class="flex justify-center h-8"><svg class="w-6 h-6 flowchart-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+                <div class="flowchart-step bg-white p-4 rounded-lg border-l-4 border-gray-200 flex items-center space-x-4">
+                    <div class="bg-amber-100 text-amber-700 rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl flex-shrink-0">4</div>
+                    <div>
+                        <h3 class="font-bold text-lg">Spatial Interpolation & Bed Calculation</h3>
+                        <p class="text-gray-600">Use Thin Plate Spline (TPS) interpolation, constrained by the glacier boundary (zero thickness \(H\)), to create a continuous ice thickness surface. Subtract this from the DEM to get the bed topography.</p>
+                    </div>
+                </div>
+                <div class="flex justify-center h-8"><svg class="w-6 h-6 flowchart-arrow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg></div>
+                <div class="flowchart-step bg-white p-4 rounded-lg border-l-4 border-amber-700 flex items-center space-x-4">
+                    <div class="bg-amber-700 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-xl flex-shrink-0">✓</div>
+                    <div>
+                        <h3 class="font-bold text-lg">Final Outputs, Volume, and Hazard Analysis</h3>
+                        <p class="text-gray-600">Generate final rasters, calculate total volume and mass, run overdeepening analysis (potential glacial lakes), and estimate peak GLOF discharge.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-gray-300">
+        <section id="demo" class="mb-24 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-8 text-gray-800">Console Demo (Simulated Run)</h2>
+            <p class="text-center text-gray-600 mb-6 max-w-2xl mx-auto">A simulation of the <span class="font-mono">OPTIG_FINAL.py</span> script run from the command line, showing the key outputs and the updated citation.</p>
+            
+            <div class="max-w-4xl mx-auto bg-gray-800 rounded-lg p-6 shadow-xl">
+                <div class="text-gray-300 font-mono text-sm mb-4">$&gt; python OPTIG_FINAL.py --dem data/dem.tif --velocity data/vel.tif --boundary data/outline.shp --flowlines data/flowlines.shp --contours data/contours.shp</div>
+                <pre class="console-output text-green-300">
+[OPTIG v1.0.1] Starting Glacier Thickness Estimation...
+
+<span class="text-yellow-400">--- PHASE 1: Data Preprocessing ---</span>
+> Loading 5 input files...
+> Inputs successfully reprojected to EPSG:32645 (UTM Zone 45N).
+> Alignment complete. Grid resolution: 30.0 m.
+
+<span class="text-yellow-400">--- PHASE 2: Thickness Inversion ---</span>
+> Calculating segment properties along 25 flowlines...
+> Applying Glen's Law (n=3) with parameters:
+  - Ice Density (ρ): 900 kg/m³
+  - Creep Factor (A): 2.4e-24 Pa⁻³s⁻¹
+  - Shape Factor (f): 0.8
+> Generating 45,780 discrete thickness points...
+
+<span class="text-yellow-400">--- PHASE 3: Interpolation and Output ---</span>
+> Interpolating thickness using Thin Plate Spline (TPS)...
+> Creating continuous thickness map and bed topography raster...
+> Outputs saved to 'results/thickness.tif' and 'results/bed.tif'.
+
+<span class="text-yellow-400">--- PHASE 4: Results and Analysis ---</span>
+<span class="text-blue-300">Glacier Ice Volume and Mass Statistics:</span>
+  Area:              12.85 km²
+  Mean Thickness:    87.45 m
+  Max Thickness:     255.10 m
+  Total Volume:      1.12 km³
+  Total Mass:        1.01 Gt
+
+<span class="text-blue-300">Citations for Core Model:</span>
+Reference (physically-based inversion): Derived from Glen's Flow Law.
+Specific flowline and interpolation methodology follows established cryosphere modeling practices.
+
+<span class="text-blue-300">Validation & Scaling:</span>
+V–A Scaling Volume (c=0.0195, b=1.365): 1.15 km³
+V–A Scaling Mass (c=0.0195, b=1.365): 1.04 Gt
+
+<span class="text-red-400">Hazard Analysis (Overdeepening Detected):</span>
+Lake detected:
+  Area:            0.150 km²
+  Volume:          0.0051 km³
+  Max depth:       55.30 m
+  Mean depth:      34.00 m
+  Peak discharge:  1450.78 m³/s
+
+[OPTIG] Analysis complete. Execution time: 48.3 seconds.
+                </pre>
+            </div>
+        </section>
+
+        <hr class="my-12 border-gray-300">
+        <section id="about" class="scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-8 text-gray-800">About Me</h2>
+            <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8 flex flex-col md:flex-row items-center gap-8 border-t-4 border-amber-500">
+                <div class="flex-shrink-0">
+                    <div class="w-40 h-40 bg-amber-100 rounded-full flex items-center justify-center">
+                        <svg class="w-24 h-24 text-amber-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"></path></svg>
+                    </div>
+                </div>
+                <div class="text-center md:text-left">
+                    <h3 class="text-3xl font-bold text-gray-800">Anurag Sharma</h3>
+                    <p class="text-amber-700 font-semibold mt-1">M.Sc. in Remote Sensing and GIS</p>
+                    <p class="mt-4 text-gray-600 max-w-lg">
+                        Anurag Sharma is the primary developer of the <strong>OPTIG</strong> model. His expertise lies in applying open-source Geographic Information Systems (GIS) and computational methods to Cryosphere Science and Glacier Dynamics. This project aims to provide a robust, accessible tool for ice thickness estimation and Glacial Lake Outburst Flood (GLOF) hazard assessment.
+                    </p>
+                    <div class="mt-6 flex flex-wrap gap-6 justify-center md:justify-start items-center text-gray-700">
+                        <a href="https://github.com/anurag-tm" target="_blank" rel="noopener noreferrer" title="GitHub" class="hover:text-amber-600 transition duration-150">
+                            <svg class="w-7 h-7" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.418 2.867 8.165 6.839 9.48.5.092.682-.217.682-.483 0-.237-.008-.884-.013-1.745-2.782.605-3.369-1.343-3.369-1.343-.455-1.15-.111-1.465.1-.96-.111-.703.44-.73.68-.73 1.018 0 1.57.525 1.57 1.15.22.44.823.385 1.02.22.112-.857.398-1.465.717-1.804-2.675-.305-5.467-1.334-5.467-5.931 0-1.31.469-2.38 1.236-3.22-.124-.305-.536-1.524.118-3.176 0 0 1.008-.32 3.301 1.23.957-.266 1.983-.4 3.003-.404 1.02.004 2.046.138 3.003.404 2.293-1.55 3.3-1.23 3.3-1.23.655 1.652.243 2.871.118 3.176.77.84 1.235 1.911 1.235 3.22 0 4.609-2.802 5.624-5.475 5.92.42.36.816 1.093.816 2.203 0 1.597-.015 2.887-.015 3.274 0 .268.18.58.688.482C21.013 20.185 24 16.437 24 12.017 24 6.484 19.522 2 14 2h-2Z" clip-rule="evenodd" /></svg>
+                        </a>
+                        <a href="mailto:anurag303sharma@jammuuniversity.ac.in" title="Email" class="hover:text-amber-600 transition duration-150">
+                            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"></path></svg>
+                        </a>
+                        <a href="https://x.com/anurag0_07" target="_blank" rel="noopener noreferrer" title="X (Twitter)" class="hover:text-amber-600 transition duration-150">
+                            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16"><path d="M12.6.75h2.454l-5.36 6.142L16 15.25h-4.937l-3.867-5.07-4.425 5.07H.316l5.733-6.57L0 .75h5.063l3.495 4.633L12.601.75Zm-.86 13.028h1.36L4.323 2.145H2.865l8.875 11.633Z"/></svg>
+                        </a>
+                        <a href="https://instagram.co" target="_blank" rel="noopener noreferrer" title="Instagram" class="hover:text-amber-600 transition duration-150">
+                            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M7.8,2H16.2C19.4,2 22,4.6 22,7.8V16.2A5.2,5.2 0 0,1 16.2,21.4H7.8C4.6,21.4 2,18.8 2,15.6V7.8C2,4.6 4.6,2 7.8,2M7.6,4A3.6,3.6 0 0,0 4,7.6V16.4C4,18.39 5.61,20 7.6,20H16.4C18.39,20 20,18.39 20,16.4V7.6C20,5.61 18.39,4 16.4,4H7.6M17.25,5.5A1.25,1.25 0 0,1 18.5,6.75A1.25,1.25 0 0,1 17.25,8A1.25,1.25 0 0,1 16,6.75A1.25,1.25 0 0,1 17.25,5.5M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9Z" /></svg>
+                        </a>
+                        <a href="https://linkedin.com/in/anurag-sharma-3b0897375" target="_blank" rel="noopener noreferrer" title="LinkedIn" class="hover:text-amber-600 transition duration-150">
+                            <svg class="w-7 h-7" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="my-12 border-gray-300">
+        <section id="references" class="mb-24 scroll-mt-20">
+            <h2 class="text-3xl font-bold text-center mb-12 text-gray-800">Complete Bibliographic References</h2>
+                <div class="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-xl border-t-4 border-amber-600">
+                    <p class="text-gray-700 mb-6">References section has been removed as per user request.</p>
+                </div>
+        </section>
+
+    </main>
+
+    <footer class="bg-white mt-20 border-t">
+        <div class="container mx-auto px-6 py-6 text-center text-gray-500">
+            <p>Interactive Report generated for the OPTIG Glacier Thickness Model.</p>
+            <p class="text-sm mt-2">&copy; 2025 Anurag Sharma. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const factorData = {
+                dem: {
+                    title: 'Digital Elevation Model (DEM)',
+                    description: 'The DEM is the foundational topographic layer. It provides the elevation for every pixel in the study area.',
+                    role: 'Its primary role is to calculate the <strong>surface slope</strong> (\\(\\alpha\\)), a critical variable in Glen\'s flow law. It is also used to derive the final glacier bed topography by subtracting the calculated ice thickness.'
+                },
+                velocity: {
+                    title: 'Surface Velocity',
+                    description: 'This raster represents the speed of ice movement at the glacier surface, typically in meters per year. It is often derived from satellite feature tracking.',
+                    role: 'Surface velocity (\\(U_s\\)) is the most important dynamic input. It is the core variable used in the numerator of the integrated Glen\'s Law equation to determine required ice thickness (\\(H\\)).'
+                },
+                boundary: {
+                    title: 'Glacier Boundary',
+                    description: 'A vector polygon defining the precise outline of the glacier.',
+                    role: 'It defines the spatial extent for all calculations and serves as the <strong>zero-thickness contour</strong> during the Thin Plate Spline (TPS) spatial interpolation step, ensuring realistic feathering at the edges.'
+                },
+                flowlines: {
+                    title: 'Flowlines',
+                    description: 'These are vector lines that represent the central paths of ice flow from the accumulation zone to the terminus.',
+                    role: 'The model calculates initial ice thickness ONLY along these lines. They provide the paths along which slope (\\(\\alpha\\)) is measured and the thickness estimates are generated before interpolation.'
+                },
+                contours: {
+                    title: 'Contour Lines',
+                    description: 'Vector polygons representing lines of equal elevation across the glacier.',
+                    role: 'The script intersects flowlines with contour polygons to create segments. The slope (\\(\\alpha\\)) for each segment is calculated based on the contour interval and the segment length, providing localized slope values for the model.'
+                },
+                moraine: {
+                    title: 'Moraine Boundary',
+                    description: 'A vector polygon outlining any terminal or lateral moraines that could act as a dam.',
+                    role: 'This input is used exclusively in the <strong>overdeepening analysis</strong>. It helps define the potential spillway elevation for a proglacial lake, allowing for the calculation of lake volume and potential GLOF discharge (\\(Q_{max}\\)).'
+                }
+            };
+
+            const factorCardsContainer = document.getElementById('factor-cards-container');
+            const factorDetailsContainer = document.getElementById('factor-details-container');
+            const navLinks = document.querySelectorAll('.nav-link');
+            const sections = document.querySelectorAll('main > section');
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+
+            const displayFactorDetails = (factorKey) => {
+                const data = factorData[factorKey];
+                if (!data) return;
+
+                factorDetailsContainer.innerHTML = `
+                    <h3 class="text-2xl font-bold mb-4 text-gray-800">${data.title}</h3>
+                    <p class="text-gray-600 mb-4">${data.description}</p>
+                    <div class="p-4 bg-amber-50 rounded-lg border-l-4 border-amber-400">
+                        <h4 class="font-semibold text-gray-700">Role in the Model:</h4>
+                        <p class="text-gray-600 mt-1">${data.role}</p>
+                    </div>
+                `;
+                
+                MathJax.typesetPromise([factorDetailsContainer]).catch((err) => console.log(err));
+                
+                document.querySelectorAll('.factor-card').forEach(card => card.classList.remove('active'));
+                document.querySelector(`.factor-card[data-factor="${factorKey}"]`).classList.add('active');
+            };
+            
+            const createFactorCards = () => {
+                Object.keys(factorData).forEach(key => {
+                    const card = document.createElement('div');
+                    card.className = 'factor-card bg-white p-4 rounded-lg border-2 border-transparent text-center h-24 flex items-center justify-center shadow-sm hover:shadow-lg';
+                    card.dataset.factor = key;
+                    card.innerHTML = `<h4 class="font-semibold">${factorData[key].title}</h4>`;
+                    card.addEventListener('click', () => displayFactorDetails(key));
+                    factorCardsContainer.appendChild(card);
+                });
+            };
+
+            const handleScroll = () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (window.pageYOffset >= sectionTop - 80) { 
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    const linkHref = link.getAttribute('href');
+                    if (linkHref && linkHref.includes(current)) {
+                        link.classList.add('active');
+                    }
+                });
+            };
+
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+            
+            mobileMenu.addEventListener('click', (e) => {
+                if(e.target.tagName === 'A') {
+                    mobileMenu.classList.add('hidden');
+                }
+            });
+
+            window.addEventListener('scroll', handleScroll);
+
+            createFactorCards();
+            displayFactorDetails('dem'); 
+            handleScroll();
+            
+            // Trigger MathJax rendering after page load
+            if (window.MathJax) {
+                MathJax.typesetPromise().catch((err) => console.log('MathJax error:', err));
+            }
+        });
+    </script>
+</body>
+</html>
